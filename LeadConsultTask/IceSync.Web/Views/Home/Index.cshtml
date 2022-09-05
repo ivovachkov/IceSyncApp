@@ -1,0 +1,31 @@
+﻿@model IEnumerable<WorkflowViewModel>
+@{ ViewData["Title"] = "Workflows"; }
+
+<link href="~/lib/toastify/toastify.css" rel="stylesheet" />
+
+<table class="table">
+	<tr>
+		<th>Workflow Id</th>
+		<th>Workflow Name</th>
+		<th>Is Active</th>
+		<th>Is Running</th>
+		<th>Multi Exec Behavior</th>
+		<th>Actions</th>
+	</tr>
+
+	@foreach (var wf in Model)
+	{
+		<tr>
+			<td>@wf.WorkflowId</td>
+			<td>@wf.WorkflowName</td>
+			<td>@wf.IsActive</td>
+			<td>@wf.IsRunning</td>
+			<td>@wf.MultiExecBehavior</td>
+			<td><button class="btn btn-outline-primary run-wf-btn" data-id="@wf.WorkflowId">Run</button></td>
+		</tr>
+	}
+
+</table>
+
+<script src="~/lib/toastify/toastify.js"></script>
+<script src="~/js/api-wf.js"></script>
