@@ -57,7 +57,6 @@ namespace IceSync.ApiClient
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.BaseAddress = new Uri(_apiClientConfiguration.BaseUri);
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            //httpClient.SetBearerToken(token);
 
             return httpClient;
         }
@@ -72,7 +71,6 @@ namespace IceSync.ApiClient
 
                 var handler = new JwtSecurityTokenHandler();
                 var jwtSecurityToken = handler.ReadJwtToken(token);
-                //var exp = jwtSecurityToken.Claims.First(claim => claim.Type == "exp").Value;
 
                 var expirationTime = jwtSecurityToken.ValidTo - DateTime.UtcNow;
 

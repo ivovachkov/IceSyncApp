@@ -26,16 +26,24 @@ namespace IceSync.Web.Controllers
         {
             _logger.LogInformation("Getting workflows from API Client...");
 
-            var apiWorkflows = await _apiClient.GetWorkflows();
-            var resultWorkflows = _mapper.Map<IEnumerable<ApiWorkflow>, IEnumerable<WorkflowViewModel>>(apiWorkflows);
+            try
+            {
+                var apiWorkflows = await _apiClient.GetWorkflows();
+                var resultWorkflows = _mapper.Map<IEnumerable<ApiWorkflow>, IEnumerable<WorkflowViewModel>>(apiWorkflows);
 
-            return View(resultWorkflows);
+                return View(resultWorkflows);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting workflows from API Client...");
+                throw;
+            }
         }
 
         [HttpPost]
         public async Task<IActionResult> RunWorkflow([FromBody] int workflowId)
         {
-            _logger.LogInformation($"Run workflow with id: {workflowId}");
+            _logger.LogInformation($"Try run workflow with id: {workflowId}");
 
             try
             {
@@ -43,7 +51,7 @@ namespace IceSync.Web.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error running workflow with id: {workflowId}");
+                _logger.LogError(ex, $"Error running workflow with id: {workflowId}");
                 return Problem(ex.Message);
             }
 

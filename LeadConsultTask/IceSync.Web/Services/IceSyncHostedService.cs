@@ -57,59 +57,63 @@ namespace IceSync.Web.Services
         public async Task ProcessSync()
         {
             _logger.LogInformation("ProcessSync() from Ice Sync Hosted Service is starting.");
-
-            using var scope = _serviceScopeFactory.CreateScope();           
-
-            var data = scope.ServiceProvider.GetService<DbContext>();
-
-            var dbWorkflows = data.Set<Workflow>().ToList();
-
-            var dbChanges = false;
-                        
-            using var transaction = await data.Database.BeginTransactionAsync();
-
-            var apiClient = scope.ServiceProvider.GetService<IApiClient>();
-            var apiWorkflows = await apiClient.GetWorkflows();
-
-            foreach (var wf in apiWorkflows)
+            
+            try
             {
-                var dbWf = dbWorkflows.FirstOrDefault(x => x.WorkflowId == wf.WorkflowId);
-                if (dbWf == null)
+                using var scope = _serviceScopeFactory.CreateScope();
+                var data = scope.ServiceProvider.GetService<DbContext>();
+                var dbWorkflows = data.Set<Workflow>().ToDictionary(x => x.WorkflowId);
+                var changeDb = false;
+
+                var apiClient = scope.ServiceProvider.GetService<IApiClient>();
+                var apiWorkflows = await apiClient.GetWorkflows();
+
+                using var transaction = await data.Database.BeginTransactionAsync();
+
+                foreach (var wf in apiWorkflows)
                 {
-                    dbChanges = true;
-                    var entity = _mapper.Map<ApiWorkflow, Workflow>(wf);
-                    await data.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT Workflows ON");
-                    data.Add(entity);
+                    if (!dbWorkflows.ContainsKey(wf.WorkflowId))
+                    {
+                        changeDb = true;
+                        var entity = _mapper.Map<ApiWorkflow, Workflow>(wf);
+                        await data.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT Workflows ON");
+                        data.Add(entity);
+                    }
+                    else if (
+                        dbWorkflows[wf.WorkflowId].IsRunning != wf.IsRunning ||
+                        dbWorkflows[wf.WorkflowId].IsActive != wf.IsActive ||
+                        dbWorkflows[wf.WorkflowId].WorkflowName != wf.WorkflowName ||
+                        dbWorkflows[wf.WorkflowId].MultiExecBehavior != wf.MultiExecBehavior)
+                    {
+                        changeDb = true;
+                        dbWorkflows[wf.WorkflowId].IsRunning = wf.IsRunning;
+                        dbWorkflows[wf.WorkflowId].IsActive = wf.IsActive;
+                        dbWorkflows[wf.WorkflowId].WorkflowName = wf.WorkflowName;
+                        dbWorkflows[wf.WorkflowId].MultiExecBehavior = wf.MultiExecBehavior;
+                    }
                 }
-                else if (
-                    dbWf.IsRunning != wf.IsRunning || 
-                    dbWf.IsActive != wf.IsActive ||
-                    dbWf.WorkflowName != wf.WorkflowName ||
-                    dbWf.MultiExecBehavior != wf.MultiExecBehavior)
+
+                var apiWfIds = apiWorkflows.Select(x => x.WorkflowId).ToHashSet();
+                var unnecessaryDbWorkflows = dbWorkflows?.Values.Where(x => !apiWfIds.Contains(x.WorkflowId));
+
+                if (unnecessaryDbWorkflows?.Count() > 0)
                 {
-                    dbChanges = true;
-                    dbWf.IsRunning = wf.IsRunning;
-                    dbWf.IsActive = wf.IsActive;
-                    dbWf.WorkflowName = wf.WorkflowName;
-                    dbWf.MultiExecBehavior = wf.MultiExecBehavior;
+                    changeDb = true;
+                    data.RemoveRange(unnecessaryDbWorkflows);
+                }
+
+                if (changeDb)
+                {
+                    await data.SaveChangesAsync();
+                    await data.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT Workflows OFF");
+                    transaction.Commit();
                 }
             }
-
-            var apiWfIds = apiWorkflows.Select(x => x.WorkflowId).ToHashSet();
-            var unnecessaryDbWorkflows = dbWorkflows.Where(x => !apiWfIds.Contains(x.WorkflowId));
-
-            if (unnecessaryDbWorkflows?.Count() > 0)
+            catch (Exception ex)
             {
-                dbChanges = true;
-                data.RemoveRange(unnecessaryDbWorkflows);
-            }
-
-            if (dbChanges)
-            {                
-                await data.SaveChangesAsync();
-                await data.Database.ExecuteSqlRawAsync("SET IDENTITY_INSERT Workflows OFF");
-                transaction.Commit();
-            } 
+                _logger.LogError(ex, "Error syncing workflows...");
+                throw;
+            }       
         }
     }
 }
