@@ -2,6 +2,7 @@ using Hangfire;
 using Hangfire.SqlServer;
 using IceSync.ApiClient;
 using IceSync.Data;
+using IceSync.Web.Extensions;
 using IceSync.Web.Services;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -16,7 +17,6 @@ namespace IceSync.Web
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.Console()
                 .CreateBootstrapLogger();
-
             Log.Information("Starting up");
 
             try
@@ -26,6 +26,10 @@ namespace IceSync.Web
                 builder.Host.UseSerilog((ctx, lc) => lc
                     .WriteTo.Console()
                     .ReadFrom.Configuration(ctx.Configuration));
+
+                //builder.Services
+                //    .ConfigureHangfire(builder.Configuration)
+                //    .ConfigureServices(builder.Configuration);
 
                 // Add services to the container.
                 builder.Services.AddControllersWithViews();
@@ -58,14 +62,15 @@ namespace IceSync.Web
                 builder.Services.AddHangfireServer();
 
                 builder.Services.AddHostedService<IceSyncHostedService>();
-
                 builder.Services.AddAutoMapper(typeof(Program));
 
                 var app = builder.Build();
 
+                //app.InitializeDb().ConfigureApp();
+
+                // Initialize Db
                 using var serviceScope = app.Services.CreateScope();
                 var serviceProvider = serviceScope.ServiceProvider;
-
                 var db = serviceProvider.GetRequiredService<DbContext>();
                 db.Database.EnsureCreated();
 
@@ -78,16 +83,10 @@ namespace IceSync.Web
                 }
 
                 app.UseSerilogRequestLogging();
-
                 app.UseHttpsRedirection();
                 app.UseStaticFiles();
-
                 app.UseRouting();
-
-                app.UseAuthorization();
-
                 app.UseHangfireDashboard();
-
                 app.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -108,19 +107,13 @@ namespace IceSync.Web
         private static void CreateHangfireDatabase(IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("HangfireDatabase");
-
-            var dbName = connectionString
-                .Split(";")[1]
-                .Split("=")[1];
+            var dbName = connectionString.Split(";")[1].Split("=")[1];
 
             using var connection = new SqlConnection(connectionString.Replace(dbName, "master"));
-
             connection.Open();
-
             using var command = new SqlCommand(
                 $"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'{dbName}') create database [{dbName}];",
                 connection);
-
             command.ExecuteNonQuery();
         }
     }

@@ -7,22 +7,29 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Data.SqlClient;
 
-namespace IceSync.Web
+namespace IceSync.Web.Extensions
 {
-    public static class Extensions
-	{
-		public static IServiceCollection ConfigureServices(this IServiceCollection services, ConfigurationManager configuration)
-		{
+    public static class AppBuilderExtensions
+    {
+        public static IServiceCollection ConfigureServices(this IServiceCollection services, ConfigurationManager configuration)
+        {
             services.AddControllersWithViews();
             services.AddHttpClient();
             services.AddOptions<ApiClientConfiguration>()
                 .Bind(configuration.GetSection(nameof(ApiClientConfiguration)));
-            services.AddScoped<IApiClient, IceSync.ApiClient.ApiClient>();
+            services.AddScoped<IApiClient, ApiClient.ApiClient>();
             services.AddScoped<DbContext, WorkflowDbContext>();
             services.AddDbContext<WorkflowDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("WorkflowDatabase")));
+            services.AddHostedService<IceSyncHostedService>();
+            services.AddAutoMapper(typeof(Program));
 
-            // Hangfire
+            return services;
+        }
+
+        public static IServiceCollection ConfigureHangfire(this IServiceCollection services, ConfigurationManager configuration)
+        {
             CreateHangfireDatabase(configuration);
+
             services.AddHangfire(config =>
             {
                 config
@@ -40,11 +47,6 @@ namespace IceSync.Web
                             DisableGlobalLocks = true // Migration to Schema 7 is required
                         });
             });
-            services.AddHangfireServer();
-            
-            services.AddHostedService<IceSyncHostedService>();
-            
-            services.AddAutoMapper(typeof(Program));
 
             return services;
         }
@@ -77,11 +79,10 @@ namespace IceSync.Web
             return app;
         }
 
-        public static WebApplication Initialize(this WebApplication app)
+        public static WebApplication InitializeDb(this WebApplication app)
         {
             using var serviceScope = app.Services.CreateScope();
             var serviceProvider = serviceScope.ServiceProvider;
-
             var db = serviceProvider.GetRequiredService<DbContext>();
             db.Database.EnsureCreated();
 

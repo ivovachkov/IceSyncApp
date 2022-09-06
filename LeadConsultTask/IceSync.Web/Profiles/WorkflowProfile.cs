@@ -1,10 +1,10 @@
-﻿namespace WebApplication2.Profiles
-{
-    using AutoMapper;
-    using IceSync.ApiClient;
-    using IceSync.Data.Entities;
-    using IceSync.Web.Models;
+﻿using AutoMapper;
+using IceSync.ApiClient;
+using IceSync.Data.Entities;
+using IceSync.Web.Models;
 
+namespace IceSync.Web.Profiles
+{
     public class WorkflowProfile : Profile
     {
         public WorkflowProfile()
