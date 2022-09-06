@@ -70,6 +70,12 @@ namespace IceSync.ApiClient
                 var token = await GetTokenFromApiAsync(client);
 
                 var handler = new JwtSecurityTokenHandler();
+
+                if (!handler.CanReadToken(token))
+                {
+                    throw new ArgumentException("Invalid jwt token.");
+                }
+
                 var jwtSecurityToken = handler.ReadJwtToken(token);
 
                 var expirationTime = jwtSecurityToken.ValidTo - DateTime.UtcNow;
