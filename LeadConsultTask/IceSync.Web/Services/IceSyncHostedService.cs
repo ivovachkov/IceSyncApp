@@ -12,17 +12,20 @@ namespace IceSync.Web.Services
         private readonly IRecurringJobManager _recurringJob;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IMapper _mapper;
+        private readonly IConfiguration _configuration;
 
         public IceSyncHostedService(
             ILogger<IceSyncHostedService> logger,
             IRecurringJobManager recurringJob,
             IServiceScopeFactory serviceScopeFactory,
-            IMapper mapper)
+            IMapper mapper,
+            IConfiguration configuration)
         {
             _logger = logger;
             _recurringJob = recurringJob;
             _serviceScopeFactory = serviceScopeFactory;
             _mapper = mapper;
+            _configuration = configuration;
         }
 
         public async Task StartAsync(CancellationToken stoppingToken)
@@ -41,7 +44,7 @@ namespace IceSync.Web.Services
             _recurringJob.AddOrUpdate(
                 nameof(IceSyncHostedService),
                 () => ProcessSync(),
-                "*/1 * * * *");
+                _configuration.GetValue<string>("SyncJobSchedule"));
         }
 
         public Task StopAsync(CancellationToken stoppingToken)
