@@ -16,7 +16,7 @@ namespace IceSync.Web
         {
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.Console()
-                .CreateBootstrapLogger();
+                .CreateLogger();
             Log.Information("Starting up");
 
             try
